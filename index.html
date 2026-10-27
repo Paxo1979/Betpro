@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BetPredictor - Poisson Engine</title>
+    <style>
+        :root {
+            --bg-color: #0f131a;
+            --panel-bg: #181d28;
+            --accent: #2ecc71;
+            --accent-hover: #27ae60;
+            --text-main: #ffffff;
+            --text-muted: #95a5a6;
+            --border: #2c3e50;
+            --card-bg: #212838;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 12px;
+        }
+        .container {
+            max-width: 650px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 1.3rem;
+            text-align: center;
+            margin-bottom: 4px;
+            color: var(--accent);
+        }
+        .subtitle {
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 15px;
+        }
+        .card {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+        }
+        label {
+            display: block;
+            font-size: 0.85rem;
+            margin-bottom: 4px;
+            color: var(--text-muted);
+        }
+        select, input, button {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background-color: var(--card-bg);
+            color: var(--text-main);
+            font-size: 0.95rem;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+        select:focus, input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        button.primary {
+            background-color: var(--accent);
+            color: #000;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button.primary:hover {
+            background-color: var(--accent-hover);
+            color: #fff;
+        }
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .stat-box {
+            background: var(--card-bg);
+            padding: 8px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+        .stat-title { font-size: 0.75rem; color: var(--text-muted); }
+        .stat-val { font-size: 1.1rem; font-weight: bold; color: var(--accent); margin-top: 2px; }
+        #status { text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; }
+        .market-item {
+            background: var(--card-bg);
+            padding: 8px 10px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 3px solid var(--accent);
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>⚽ BetPredictor</h1>
+    <div class="subtitle">Motore Matematico Poisson & Analisi Statistica</div>
+
+    <div class="card">
+        <div id="status">Database pronto per la sincronizzazione</div>
+        <button class="primary" onclick="caricaDatiReali()">🔄 Sincronizza Dati Campionati</button>
+    </div>
+
+    <div class="card" id="filter-section" style="display:none;">
+        <label for="select-lega">Seleziona Campionato:</label>
+        <select id="select-lega" onchange="aggiornaSquadre()">
+            <option value="">-- Seleziona Lega --</option>
+        </select>
+
+        <div class="grid-2">
+            <div>
+                <label for="select-casa">Squadra Casa:</label>
+                <select id="select-casa" onchange="calcolaAnalisi()"><option value="">-- Casa --</option></select>
+            </div>
+            <div>
+                <label for="select-fuori">Squadra Trasferta:</label>
+                <select id="select-fuori" onchange="calcolaAnalisi()"><option value="">-- Trasferta --</option></select>
+            </div>
+        </div>
+
+        <div class="grid-2" style="margin-top: 5px;">
+            <div>
+                <label for="select-filtro">Tipo Analisi:</label>
+                <select id="select-filtro" onchange="calcolaAnalisi()">
+                    <option value="ultime6">Ultime 6 Partite</option>
+                    <option value="casa_fuori">Casa/Fuori Specifico</option>
+                    <option value="totale">Totale Stagione</option>
+                </select>
+            </div>
+            <div>
+                <label for="input-arbitro">Media Cartellini Arbitro:</label>
+                <input type="number" id="input-arbitro" value="4.5" step="0.1" oninput="calcolaAnalisi()">
+            </div>
+        </div>
+    </div>
+
+    <div class="card" id="results-card" style="display:none;">
+        <h3 id="match-title" style="margin-top:0; text-align:center; color:var(--accent); font-size:1rem;">Analisi Partita</h3>
+        
+        <div class="stats-grid">
+            <div class="stat-box"><div class="stat-title">xG Attesi (Casa / Fuori)</div><div class="stat-val" id="res-gol">0.0</div></div>
+            <div class="stat-box"><div class="stat-title">Media Tiri in Porta</div><div class="stat-val" id="res-tiri">--</div></div>
+            <div class="stat-box"><div class="stat-title">Media Corner Stimati</div><div class="stat-val" id="res-corner">--</div></div>
+            <div class="stat-box"><div class="stat-title">Cartellini Attesi (Poisson)</div><div class="stat-val" id="res-cartellini">0.0</div></div>
+        </div>
+
+        <h4 style="margin: 12px 0 6px 0; font-size:0.85rem; color:var(--text-muted);">Mercati & Quote Teoriche (Poisson):</h4>
+        <div id="markets-list"></div>
+    </div>
+</div>
+
+<script>
+const legheConfig = {
+    "Serie A (Italia)": "it.1.json",
+    "Premier League (Inghilterra)": "en.1.json",
+    "La Liga (Spagna)": "es.1.json",
+    "Bundesliga (Germania)": "de.1.json",
+    "Ligue 1 (Francia)": "fr.1.json"
+};
+let globalDatabase = {};
+
+async function caricaDatiReali() {
+    const statusEl = document.getElementById('status');
+    statusEl.innerHTML = "⏳ Download dati dai campionati in corso...";
+    globalDatabase = {};
+    let legheTrovate = 0;
+
+    for (let [nomeLega, fileRepo] of Object.entries(legheConfig)) {
+        try {
+            let url = `https://raw.githubusercontent.com/openfootball/football.json/master/2025-26/${fileRepo}`;
+            let res = await fetch(url);
+            if (!res.ok) throw new Error("Errore HTTP");
+            let data = await res.json();
+            let squadreSet = new Set();
+            let partiteLega = [];
+
+            if (data.matches) {
+                data.matches.forEach(m => {
+                    if (m.score && m.score.ft) {
+                        squadreSet.add(m.team1);
+                        squadreSet.add(m.team2);
+                        partiteLega.push({
+                            team1: m.team1,
+                            team2: m.team2,
+                            gf1: m.score.ft[0],
+                            gf2: m.score.ft[1]
+                        });
+                    }
+                });
+            }
+            globalDatabase[nomeLega] = { squadre: Array.from(squadreSet).sort(), partite: partiteLega };
+            legheTrovate++;
+        } catch (e) {
+            console.warn(`Impossibile caricare ${nomeLega}:`, e);
+        }
+    }
+
+    if (legheTrovate > 0) {
+        statusEl.innerHTML = `✅ Sincronizzazione completata (${legheTrovate}/5 campionati)`;
+        popolaSelettoreLeghe();
+        document.getElementById('filter-section').style.display = 'block';
+    } else {
+        statusEl.innerHTML = "❌ Errore di connessione. Riprova.";
+    }
+}
+
+function popolaSelettoreLeghe() {
+    let selectLega = document.getElementById('select-lega');
+    selectLega.innerHTML = '<option value="">-- Seleziona Lega --</option>';
+    for (let lega in globalDatabase) {
+        let opt = document.createElement('option');
+        opt.value = lega;
+        opt.textContent = lega;
+        selectLega.appendChild(opt);
+    }
+}
+
+function aggiornaSquadre() {
+    let legaScelta = document.getElementById('select-lega').value;
+    let selectCasa = document.getElementById('select-casa');
+    let selectFuori = document.getElementById('select-fuori');
+    selectCasa.innerHTML = '<option value="">-- Casa --</option>';
+    selectFuori.innerHTML = '<option value="">-- Trasferta --</option>';
+    document.getElementById('results-card').style.display = 'none';
+
+    if (!legaScelta || !globalDatabase[legaScelta]) return;
+    let squadre = globalDatabase[legaScelta].squadre;
+
+    squadre.forEach(s => {
+        selectCasa.add(new Option(s, s));
+        selectFuori.add(new Option(s, s));
+    });
+}
+
+function poissonProb(lambda, k) {
+    return (Math.pow(lambda, k) * Math.exp(-lambda)) / fattoriale(k);
+}
+
+function fattoriale(n) {
+    if (n === 0 || n === 1) return 1;
+    let res = 1;
+    for (let i = 2; i <= n; i++) res *= i;
+    return res;
+}
+
+function calcolaAnalisi() {
+    let lega = document.getElementById('select-lega').value;
+    let casa = document.getElementById('select-casa').value;
+    let fuori = document.getElementById('select-fuori').value;
+    let filtro = document.getElementById('select-filtro').value;
+    let arbVal = parseFloat(document.getElementById('input-arbitro').value) || 4.0;
+    let resultsCard = document.getElementById('results-card');
+
+    if (!lega || !casa || !fuori || casa === fuori) {
+        resultsCard.style.display = 'none';
+        return;
+    }
+
+    let tutteLePartite = globalDatabase[lega].partite;
+
+    let partiteCasa = tutteLePartite.filter(m => m.team1 === casa || m.team2 === casa);
+    let partiteFuori = tutteLePartite.filter(m => m.team1 === fuori || m.team2 === fuori);
+
+    if (filtro === 'ultime6') {
+        partiteCasa = partiteCasa.slice(-6);
+        partiteFuori = partiteFuori.slice(-6);
+    } else if (filtro === 'casa_fuori') {
+        partiteCasa = partiteCasa.filter(m => m.team1 === casa);
+        partiteFuori = partiteFuori.filter(m => m.team2 === fuori);
+    }
+
+    let gfCasa = 0, gsCasa = 0, countC = partiteCasa.length || 1;
+    partiteCasa.forEach(m => {
+        let isHome = (m.team1 === casa);
+        gfCasa += isHome ? m.gf1 : m.gf2;
+        gsCasa += isHome ? m.gf2 : m.gf1;
+    });
+
+    let gfFuori = 0, gsFuori = 0, countF = partiteFuori.length || 1;
+    partiteFuori.forEach(m => {
+        let isHome = (m.team1 === fuori);
+        gfFuori += isHome ? m.gf1 : m.gf2;
+        gsFuori += isHome ? m.gf2 : m.gf1;
+    });
+
+    let lambdaCasa = (gfCasa / countC + gsFuori / countF) / 2;
+    let lambdaFuori = (gfFuori / countF + gsCasa / countC) / 2;
+
+    let probUnder25 = 0, probBtts = 0;
+    for (let c = 0; c <= 5; c++) {
+        for (let f = 0; f <= 5; f++) {
+            let p = poissonProb(lambdaCasa, c) * poissonProb(lambdaFuori, f);
+            if (c + f < 2.5) probUnder25 += p;
+            if (c > 0 && f > 0) probBtts += p;
+        }
+    }
+    let probOver25 = (1 - probUnder25) * 100;
+    let probBttsPerc = probBtts * 100;
+
+    let quotaOver25 = probOver25 > 0 ? (100 / probOver25).toFixed(2) : "99.00";
+    let quotaUnder25 = (100 / (100 - probOver25)).toFixed(2);
+    let quotaBtts = probBttsPerc > 0 ? (100 / probBttsPerc).toFixed(2) : "99.00";
+
+    let lambdaCartellini = (arbVal * 0.55) + (((gsCasa + gsFuori) / (countC + countF)) * 0.45) * 2;
+    let probOver35Cart = 0;
+    for (let i = 0; i <= 10; i++) {
+        let pC = poissonProb(lambdaCartellini, i);
+        if (i > 3.5) probOver35Cart += pC;
+    }
+    let percCartellini = (probOver35Cart * 100).toFixed(0);
+    let quotaCartellini = percCartellini > 0 ? (100 / percCartellini).toFixed(2) : "1.50";
+
+    document.getElementById('match-title').textContent = `${casa} vs ${fuori}`;
+    document.getElementById('res-gol').textContent = `${lambdaCasa.toFixed(2)} - ${lambdaFuori.toFixed(2)}`;
+    document.getElementById('res-tiri').textContent = "~ 12.0";
+    document.getElementById('res-corner').textContent = "~ 9.5";
+    document.getElementById('res-cartellini').textContent = lambdaCartellini.toFixed(1);
+
+    let htmlMarkets = `
+        <div class="market-item"><span>Over 2.5 Gol (${probOver25.toFixed(0)}%)</span><span>Quota: <b>${quotaOver25}</b></span></div>
+        <div class="market-item"><span>Under 2.5 Gol (${(100 - probOver25).toFixed(0)}%)</span><span>Quota: <b>${quotaUnder25}</b></span></div>
+        <div class="market-item"><span>Goal / BTTS (${probBttsPerc.toFixed(0)}%)</span><span>Quota: <b>${quotaBtts}</b></span></div>
+        <div class="market-item"><span>Over 3.5 Cartellini (Arb: ${arbVal} - ${percCartellini}%)</span><span>Quota: <b>${quotaCartellini}</b></span></div>
+    `;
+    document.getElementById('markets-list').innerHTML = htmlMarkets;
+    resultsCard.style.display = 'block';
+}
+</script>
+</body>
+</html>
